@@ -7,4 +7,7 @@ module.exports = {
   testEnvironment: 'node',
   moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths),
   modulePaths: ['<rootDir>'],
+  clearMocks: true,
+  collectCoverage: true,
+  coverageProvider: 'v8',
 };
