@@ -47,17 +47,3 @@ const caeserCipher = (secret: string, s: number) => {
 };
 
 export { caeserCipher };
-console.log(caeserCipher('MERCY ESTATE TASK PRODUCE', 20)); // GYLWS YMNUNY NUME JLIXOWY
-console.log(caeserCipher('MERCY ESTATE TASK PRODUCE', -26)); // GYLWS YMNUNY NUME JLIXOWY
-console.log(caeserCipher('MERCY ESTATE TASK PRODUCE', 9)); //
-// console.log(caeserCipher('GYLWS YMNUNY NUME JLIXOWY', 6)); // MERCY ESTATE TASK PRODUCE
-// console.log(caeserCipher('MERCY ESTATE TASK PRODUCE', 54)); // OGTEA GUVCVG VCUM RTQFWEG
-// console.log(caeserCipher('MERCY ESTATE TASK PRODUCE', 28)); // OGTEA GUVCVG VCUM RTQFWEG
-// 'A'.charCodeAt() = 65
-// 'Z'.charCodeAt() = 90
-// 'a'.charCodeAt() = 97
-// 'z'.charCodeAt() = 122
-
-// for (let i = 1; i < 55; i++) {
-//     console.log(i, caeserCipher('MERCY ESTATE TASK PRODUCE', i));
-// }
