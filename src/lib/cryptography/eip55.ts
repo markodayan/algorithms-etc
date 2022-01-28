@@ -1,6 +1,4 @@
-const createKeccakHash = require('keccak');
-
-let address = '001d3f1ef827552ae1114027bd3ecf1f086ba0f9';
+import createKeccakHash from 'keccak';
 
 const hexGreaterThan = (limit: string) => (val: string) => parseInt(val, 16) >= parseInt(limit, 16);
 const hexGreaterThan8 = hexGreaterThan('8');
@@ -19,5 +17,3 @@ const eip55Checksum = (address: string) => {
 };
 
 export { eip55Checksum };
-
-// 0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9
