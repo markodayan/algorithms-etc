@@ -1,7 +1,7 @@
 /**
  * Convert hex value to Uint8Array (Decimal)
  * @param {String} - address (e.g. 001d3f1ef827552ae1114027bd3ecf1f086ba0f9)
- * @returns {Uint8Array}
+ * @returns {Uint8Array} - Number[]
  */
 const hexToBytes = (address: string) => {
   // equiv to -> new Uint8Array(Buffer.from(address, 'hex'))

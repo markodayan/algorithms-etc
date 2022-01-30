@@ -12,6 +12,6 @@ module.exports = {
   collectCoverage: true,
   coverageProvider: 'v8',
   testTimeout: 30000,
-  coveragePathIgnorePatterns: ['src/index.ts'],
+  coveragePathIgnorePatterns: ['src/index.ts', 'node_modules'],
   testPathIgnorePatterns: ['<rootDir>/src/test/junk/'],
 };

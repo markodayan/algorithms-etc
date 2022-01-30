@@ -23,5 +23,5 @@
       "@config/*": ["src/config/*"]
     }
   },
-  "exclude": ["node_modules", "dist", "src/junk"]
+  "exclude": ["node_modules", "dist"]
 }
