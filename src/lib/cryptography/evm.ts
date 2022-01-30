@@ -5,6 +5,4 @@ const encodeFunctionSelector = (selector: string) => {
   return keccakHash.substring(0, 8).padStart(10, '0x');
 };
 
-console.log(encodeFunctionSelector('withdraw(uint256)'));
-
 export { encodeFunctionSelector };
