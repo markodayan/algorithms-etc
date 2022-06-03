@@ -1,4 +1,4 @@
-import { decodeIntegerMessage } from '@lib/cryptography/decoding';
+import { decodeIntegerMessage } from '@src/lib/cryptography/bytes';
 
 describe('#decodeIntegerMessage', () => {
   const code = '11515195063862318899931685488813747395775516287289682636499965282714637259206269';

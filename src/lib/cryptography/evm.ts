@@ -5,4 +5,6 @@ const encodeFunctionSelector = (selector: string) => {
   return keccakHash.substring(0, 8).padStart(10, '0x');
 };
 
+const decodeFunctionSignature = (signature: string) => {};
+
 export { encodeFunctionSelector };
