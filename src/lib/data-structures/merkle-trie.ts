@@ -1,3 +1,6 @@
+// Merkle Trie
+// The importance of Merkle Tries is in its ability to verify data with efficiency. O(h) time complexity due to us not needing the entire trie for verification.
+
 // Assumptions made: All tries are binary, balanced, and the number of transactions to be stored are an exponent of two.
 import createKeccakHash from 'keccak';
 
@@ -61,6 +64,11 @@ class MerkleTrie<T> {
     return result;
   }
 
+  // Given a transaction/data root, generate the list of required hashes needed to verify the transaction (compare against the merkle root)
+  public merkleProofRequirements(dataHash: string): string[] {
+    return [];
+  }
+
   public verifyMerkleProof(calculatedMerkleRoot: string): boolean {
     return this.root.hash === calculatedMerkleRoot;
   }
@@ -92,5 +100,7 @@ const first = new MerkleTrie<string>(['one', 'two', 'three', 'four']);
 
 // console.log('Merkle Root: ', first.root.hash);
 // console.log('Calculated Root:', calcMerkleRoot);
+
+// Scenario - I receive transaction 'two' from an untrusted source, I want to verify that it is a valid transaction. What I currently have is a Merkle Tree. I can verify transaction 'two' by hashing all the nodes that lead to the Merkle root of the tree. This involves calculating the hash of transaction 'two', calculating the hash of the parent node by hashing this transaction node with its neightbour, Recursively do this until we reach the root. Compare the calculated root with that of the Merkle root, if they are the same then transaction 'two' is valid. In a Merkle Trie, the data can be verified in O(logn) time since we only calculate logn hashes.
 
 export default MerkleTrie;
