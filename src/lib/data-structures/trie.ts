@@ -1,7 +1,13 @@
-// A trie is tree where the letters of the alphabet can be stored in each node (each node can hold a character of the alphabet). By traversing down different tree paths we can retrieve different words stored in the trie.
+// A trie (also known as a Prefix Tree) is tree where the letters of the alphabet can be stored in each node (each node can hold a character of the alphabet). By traversing down different tree paths we can retrieve different words stored in the trie.
 
 interface IChildrenMap {
   [char: string]: Node;
+}
+
+interface ITrie {
+  root: Node;
+  insert(word: string): void;
+  search(word: string): boolean;
 }
 
 class Node {
@@ -16,7 +22,7 @@ class Node {
   }
 }
 
-class Trie {
+class Trie implements ITrie {
   public root: Node;
 
   constructor() {
@@ -40,7 +46,7 @@ class Trie {
     node.end = true;
   }
 
-  public search(word: string) {
+  public search(word: string): boolean {
     const length = word.length;
     let node = this.root;
 
