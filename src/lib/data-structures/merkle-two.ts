@@ -75,7 +75,7 @@ class Transaction implements ITransaction {
 }
 
 class TransactionList {
-  public list: (ITransaction | string)[];
+  public list: ITransaction[];
 
   constructor() {
     this.list = [];
@@ -100,13 +100,11 @@ class MerkleTrie {
     this.root.unshift(transactionList.map((t: any) => t.hash)); // add array of the transaction hashes to merkle root array
 
     // While first element of the merkle array is not the single merkle root
-    while (!this.haveMerkleRoot()) {
-      let temp = [];
+    while (!this.hasMerkleRoot()) {
+      let level = [];
       let levelNodeCount = this.root[0].length;
 
       for (let i = 0; i < levelNodeCount; i += 2) {
-        let hasHashPartner = i % 2 === 0;
-
         if (i < this.root[0].length - 1) {
           const child1: Hash = this.root[0][i] as string;
           const child2: Hash = this.root[0][i + 1] as string;
@@ -115,17 +113,17 @@ class MerkleTrie {
             .update(child1 + child2)
             .digest('hex');
 
-          temp.push(parent);
+          level.push(parent);
         } else {
-          temp.push(this.root[0][i]);
+          level.push(this.root[0][i]);
         }
       }
 
-      this.root.unshift(temp as any);
+      this.root.unshift(level as any);
     }
   }
 
-  private haveMerkleRoot(): boolean {
+  private hasMerkleRoot(): boolean {
     return this.root[0].length <= 1;
   }
 
@@ -153,28 +151,28 @@ class MerkleTrie {
         let neighbour = null;
 
         // position = index of the level node (we want to find its neighbour to help compute its parent)
-        if (position % 2 == 0) {
+        if (position % 2 === 0) {
           neighbour = this.root[level][position + 1];
 
-          // if no right neigbour
-          if (!neighbour) {
-            neighbour = verifyHash;
-          } else {
+          // if right neighbour exists
+          if (neighbour) {
             verifyHash = createKeccakHash('keccak256')
               .update(verifyHash + neighbour)
               .digest('hex');
           }
 
-          // Update position corresponding to computed level node
+          // point to index of calculated parent node (on next level) [might not be calculated if a single child but the index will still change]
           position = Math.floor(position / 2);
         } else {
           // our current node is a right neighbour, hence we need to find a left neighbour
           neighbour = this.root[level][position - 1];
-          position = Math.floor((position - 1) / 2);
 
           verifyHash = createKeccakHash('keccak256')
             .update(neighbour + verifyHash)
             .digest('hex');
+
+          // point to index of calculated parent node (on next level)
+          position = Math.floor((position - 1) / 2);
         }
       }
 
@@ -212,39 +210,38 @@ const ExistingHashInvalidInformation = {
   id: 2,
 };
 
-// trie.verify(transactionList.list[3] as ITransaction); // Valid
+// Verifying data in the Merkle Trie takes O(logn) time since we only calculate logn hashes
+
 // trie.verify(fakeTx as ITransaction); // Invalid (Data not found with the id)
 // trie.verify(existingTx); // Valid
 // trie.verify(transactionAdapter(ExistingHashInvalidInformation)); // Invalid Transaction (Existing Hash - Invalid TX)
 
 // trie.verify(transactionList.list[0] as ITransaction); // Valid
 // We have the hash for transaction 0 (hash_0)
-// 1. hash against hash_1 (to produce hash_01)
-// 2. hash against hash_23 (to produce hash_0123)
-// 3. hash against hash_4 (to produce the merkle root hash_01234)
+// 1. hash against hash_1 (right neigbour) [to produce hash_01]
+// 2. hash against hash_23 (right neighbour) [to produce hash_0123]
+// 3. hash against hash_4 (right neigbour) [to produce the merkle root hash_01234]
 
 // trie.verify(transactionList.list[1] as ITransaction); // Valid
 // We have the hash for transaction 1 (hash_1)
-// 1. hash against hash_0 (to produce hash_01)
-// 2. hash against hash_23 (to produce hash_0123)
-// 3. hash against hash_4 (to produce the merkle root hash_01234)
+// 1. hash against hash_0 (left neighbour) [to produce hash_01]
+// 2. hash against hash_23 (right neigbour) [to produce hash_0123]
+// 3. hash against hash_4 (right neighbour) [to produce the merkle root hash_01234]
 
-trie.verify(transactionList.list[2] as ITransaction); // Valid
+// trie.verify(transactionList.list[2] as ITransaction); // Valid
 // We have the hash for transaction 2 (hash_2)
-// 1. hash against hash_3 (to produce hash_23)
-// 2. hash against hash_01 (to produce hash_0123 )
-// 3. hash against hash_4 (to produce the merkle root hash_01234)
+// 1. hash against hash_3 (right neighbour) [to produce hash_23]
+// 2. hash against hash_01 (left neighbour) [to produce hash_0123]
+// 3. hash against hash_4 (right neigbour) [to produce the merkle root hash_01234]
 
 // trie.verify(transactionList.list[3] as ITransaction); // Valid
 // We have the hash for transaction 2 (hash_3)
-// 1.
-// 2.
-// 3.
+// 1. hash against hash_2 (left neighbour) [to produce hash_23]
+// 2. hash against hash_01 (left neighbour) [to produce hash_0123]
+// 3. hash against hash_4 (right neigbour) [to produce the merkle root hash_01234]
 
 // trie.verify(transactionList.list[4] as ITransaction); // Valid
 // We have the hash for transaction 2 (hash_4)
-// 1.
-// 2.
-// 3.
+// 1. hash against hash_0123 (left neighbour) [to produce the merkle root hash_01234]
 
 export default MerkleTrie;
