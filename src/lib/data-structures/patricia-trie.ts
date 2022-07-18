@@ -1,6 +1,6 @@
 import createKeccakHash from 'keccak';
 
-// This is a simple trie data structure which uses a transaction hash to map a tree path to its corresponding transaction object
+// Patricia tries are modified trie data structures
 // NOTE: this is not a modified merkle patricia trie which is used by the Ethereum protocol to encode storage + world state (there are further complex changes made to traditional merkle trie design to optimise the storage structure)
 
 const mockTransactions = [
