@@ -78,10 +78,9 @@ class RadixTree {
 
   public insert(word: string) {
     let node = this.root;
-    let match;
 
     while (word.length > 0) {
-      match = node.getLongestPrefix(word);
+      let match = node.getLongestPrefix(word);
 
       // if no there are no matches against the current node keys, create Node with entire word as key
       if (!match) {
@@ -114,6 +113,24 @@ class RadixTree {
     // current node should exist
     node.end = true;
   }
+
+  public search(word: string): boolean {
+    let node = this.root;
+
+    while (word.length > 0) {
+      let match = node.getLongestPrefix(word);
+
+      // If there is no match OR the prefix match is not the complete key candidate value -> word is not contained in the trie
+      if (!match || match.prefix.length != match.string!.length) {
+        return false;
+      }
+
+      node = node.children[match.string!];
+      word = word.slice(match.string!.length);
+    }
+
+    return node.end;
+  }
 }
 
 let radixTree = new RadixTree();
@@ -123,9 +140,16 @@ radixTree.insert('ADAM');
 radixTree.insert('ALEX');
 radixTree.insert('JANE');
 radixTree.insert('ALAN');
-// radixTree.insert('ADAMA');
-// radixTree.insert('ELLEN');
-// radixTree.insert('ERIC');
-console.log('yehaw');
+radixTree.insert('ADAMA');
+radixTree.insert('ELLEN');
+radixTree.insert('ERIC');
+
+console.log(`JOHN: ${radixTree.search('JOHN')}`); // true
+console.log(`JON: ${radixTree.search('JON')}`); // false
+console.log(`ALE: ${radixTree.search('ALE')}`); // false
+console.log(`ALEX: ${radixTree.search('ALEX')}`); // true
+console.log(`ADAM: ${radixTree.search('ADAM')}`); // true
+console.log(`ALVIN: ${radixTree.search('ALVIN')}`); // false
+console.log(`ERICA: ${radixTree.search('ERICA')}`); // false
 
 export default RadixTree;
