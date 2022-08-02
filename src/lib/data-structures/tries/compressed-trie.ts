@@ -94,7 +94,7 @@ class RadixTree {
         if (match.prefix.length === match.string!.length) {
           // point to next node of completely matched key (corresponding to matched prefix)
           node = node.children[match.string!];
-          // slice prefix as we have now traversed to a node corresponding to our prefix term
+          // slice prefix as we have no traversed to a node corresponding to our prefix term
           word = word.slice(match.string!.length);
         } else {
           // Create new node to replace current node with new common prefix and children representing suffixes (matched string suffix, new word suffix)

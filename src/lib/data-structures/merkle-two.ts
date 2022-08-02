@@ -181,6 +181,8 @@ class MerkleTrie {
       console.log('Invalid: Data not found with the id');
     }
   }
+
+  public fetchRequiredHashes(t: Transaction) {}
 }
 
 let transactionList = new TransactionList();
