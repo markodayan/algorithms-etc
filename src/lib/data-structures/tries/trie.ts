@@ -1,5 +1,7 @@
 // Alphanumeric trie using objects for children node storage
 
+// In an alphanumeric trie, nodes have a maximum fan-out of 26
+
 // Tries are tree structures in which elements are represented by paths (not by individual nodes).
 
 // Trie is derived from the word 'retrieval'.

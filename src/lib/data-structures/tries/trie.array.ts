@@ -1,5 +1,25 @@
 // Alphanumeric trie using fixed array buckets of length 26 to children node storage (each letter of the alphabet represents an array index)
-// Tradeoffs: Larger Size -> Faster access
+
+// Tries take up more memory/space compared to a hash table but they do not suffer from risks associated with hash collisions.
+
+// Hash tables use arrays with linked lists while Tries use arrays with pointers.
+
+// Downside of a trie is that it takes up a lof of memory and space with null pointers.
+
+// As a trie grows in size, less work is needed to be done to add a value, since the intermediate nodes or brancheas of the trie have already been built up.
+
+// There are great benefits to using tries. The bulk of the work in creating a trie happens early on. But as the trie grows in size, we have to do less work each time to add a value since it is likely we have already initialised nodes and their values and references.
+
+// Another benefit is that each time we add a word's letter, we know that we will only ever have to look up 26 possible indexes in a nodes array.
+
+// The amount of time it takes to create a trie is tied directly to how many words/keys the trie contains, and how long those keys could potentially be.
+// Let m = longest key in the trie
+// Let n = total number of keys in the trie
+// The worst case runtime of creating a trie is thus O(mn)
+
+// Time complexity of searching, inserting and deleting from a trie depends on the length of the word `a` that is being searched/inserted/deleted as well as the number of total words n. This makes the runtime of these operations O(an)
+
+// A powerful aspect of tries is that it makes it easy to search for a subset of elements.
 
 // Tries are tree structures in which elements are represented by paths (not by individual nodes).
 
@@ -32,9 +52,7 @@ class Trie {
         node.children[i] = new Node();
       }
 
-      if (node.children[i] && node) {
-        node = node.children[i];
-      }
+      node = node.children[i];
     }
 
     node.end = true;

@@ -2,108 +2,19 @@
 
 // A patricia trie has nodes that can contain a maximum of 2 direct children
 
-// Encode ASCII string into binary string
-function binary(str: string) {
-  const zeroPad = (num: string) => {
-    return '00000000'.slice(String(num).length) + num;
-  };
+import { binary, alphanumeric } from '@lib/utils/conversion';
 
-  return str.replace(/[\s\S]/g, function (str: any) {
-    str = zeroPad(str.charCodeAt().toString(2));
-    return str;
-  });
-}
-
-// Decode binary string into ASCII string
-function ascii(str: string) {
-  // Removes the spaces from the binary string
-  str = str.replace(/\s+/g, '');
-  // Pretty (correct) print binary (add a space every 8 characters)
-  str = str.match(/.{1,8}/g)!.join(' ');
-
-  var binString = '';
-
-  str.split(' ').map(function (bin: string) {
-    binString += String.fromCharCode(parseInt(bin, 2));
-  });
-
-  return binString;
-}
-
-interface INode {
-  end: boolean;
-  children: IChildrenMap;
-  getLongestMatch(str: string): IMatch;
-}
-
-interface IPatriciaTrie {
-  root: Node;
-  insert(word: string): void;
-  search(word: string): boolean;
-}
-
-interface IMatch {
-  prefix: string | null;
-  suffix: string | null;
-  key: string | null;
-}
-
-interface IChildrenMap {
-  [char: string]: Node;
-}
-
-class Node implements INode {
+class Node {
   public end: boolean;
-  public children: IChildrenMap;
+  public children: Node[];
 
-  constructor(end: boolean = false) {
+  constructor() {
     this.end = false;
-    this.children = {};
-  }
-
-  private longestPrefixMatch(key: string, match: string): IMatch {
-    let i = 0;
-
-    while (i < key.length && i < match.length && key[i] === match[i]) {
-      i++;
-    }
-
-    const prefix = key.slice(0, i);
-    const suffix = key.slice(i);
-    const string = prefix.length > 0 ? key : null;
-
-    return {
-      prefix,
-      suffix,
-      key: string,
-    };
-  }
-
-  public getLongestMatch(str: string): IMatch {
-    const keys: string[] = Object.keys(this.children);
-
-    // Iterate over each node name value
-    for (let i = 0; i < keys.length; i++) {
-      // key is a prefix candidate
-      const prefix = keys[i];
-      const match = this.longestPrefixMatch(prefix, str);
-
-      // If a valid substring match is found
-      if (match.key) {
-        return match;
-      }
-    }
-
-    // If no matches found
-    return {
-      prefix: null,
-      suffix: null,
-      key: null,
-    };
+    this.children = new Array(2).fill(null);
   }
 }
 
-class PatriciaTrie implements IPatriciaTrie {
+class PatriciaTrie {
   public root: Node;
 
   constructor() {
@@ -111,66 +22,117 @@ class PatriciaTrie implements IPatriciaTrie {
   }
 
   public insert(word: string) {
+    const bin = binary(word);
     let node = this.root;
-    let parentKey;
 
-    while (word.length > 0) {
-      let { prefix, suffix, key } = node.getLongestMatch(word);
+    for (let bit of bin) {
+      let i = bit === '0' ? 0 : 1;
 
-      if (!prefix || !suffix || !key) {
-        if (parentKey && Object.keys(node.children).length > 1) {
-          // We have reached max edge limit (2) to branch from on this node
-          // create new parent node pointing to existing child and append the new child as a sibling
-          let newParent = new Node();
-          newParent.children[parentKey] = node.children[parentKey];
-          node.children[parentKey] = newParent;
-          newParent.children[word] = new Node(true);
-
-          delete node.children[parentKey];
-        } else {
-          node.children[word] = new Node(true);
-        }
-
-        return;
-      } else {
-        if (prefix.length === key.length) {
-          // Full match of a key to an existing prefix edge - remove match (hence updating word) and continue with letter insertion
-          node = node.children[key];
-          parentKey = key;
-          word = word.slice(key.length);
-        } else {
-          let newNode = new Node();
-          newNode.children[suffix] = node.children[key];
-          newNode.children[word.slice(prefix.length)] = new Node(true);
-          delete node.children[key];
-          node.children[prefix] = newNode;
-          return;
-        }
+      if (node.children[i] === null) {
+        node.children[i] = new Node();
       }
+
+      node = node.children[i];
     }
 
     node.end = true;
   }
 
-  public search(word: string) {
+  public search(word: string): boolean {
+    const bin = binary(word);
     let node = this.root;
 
-    while (word.length > 0) {
-      let { prefix, suffix, key } = node.getLongestMatch(word);
-      let match = prefix || suffix || key;
+    for (let bit of bin) {
+      let i = bit === '0' ? 0 : 1;
 
-      if (!match || prefix?.length !== key?.length) {
+      if (node.children[i] === null) {
         return false;
       }
 
-      if (key) {
-        node = node.children[key];
-        word = word.slice(key.length);
-      }
+      node = node.children[i];
     }
 
-    return node.end;
+    if (node.end === true) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public remove(word: string): boolean {
+    const bin = binary(word);
+    const lastBinIndex = parseInt(bin[bin.length - 1]);
+
+    let node = this.root;
+    let candidate: { parent: Node | null; index: number | null } = {
+      parent: null,
+      index: null,
+    };
+
+    if (!word) return false;
+
+    let prev = { ...candidate };
+
+    for (let bit of bin) {
+      const i = bit === '0' ? 0 : 1;
+
+      if (node.children[i] === null) {
+        return false;
+      }
+
+      const childCount = node.children.reduce((acc, v) => (v !== null ? acc + 1 : acc), 0);
+      const parentWithOneChild = childCount === 1;
+
+      if (parentWithOneChild && !candidate.parent) {
+        candidate = { ...prev };
+      } else if (parentWithOneChild === false) {
+        candidate.parent = null;
+        candidate.index = null;
+      }
+
+      prev.parent = node;
+      prev.index = i;
+
+      node = node.children[i];
+    }
+
+    if (node.end === true) {
+      if (candidate.parent && candidate.index !== null) {
+        candidate.parent.children[candidate.index] = null as never;
+      } else if (prev.parent) {
+        prev.parent.children[lastBinIndex] = null as never;
+      }
+
+      return true;
+    }
+
+    return false;
   }
 }
+
+// let trie = new PatriciaTrie();
+
+// let alphabet = new Array(26).fill(null).map((_, i) => String.fromCharCode(65 + i));
+
+// for (let letter of alphabet) {
+//   trie.insert(letter);
+// }
+
+// for (let letter of alphabet) {
+//   let search = trie.search(letter);
+//   console.log(`${letter} found: ${search}`);
+// }
+
+// trie.remove('A');
+// trie.remove('B');
+// trie.remove('C');
+// trie.remove('X');
+// trie.remove('Y');
+// trie.remove('Z');
+
+// for (let letter of alphabet) {
+//   let search = trie.search(letter);
+//   console.log(`${letter} found: ${search}`);
+// }
 
 export { PatriciaTrie };
