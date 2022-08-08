@@ -7,6 +7,7 @@ import { binary, alphanumeric } from '@lib/utils/conversion';
 class Node {
   public end: boolean;
   public children: Node[];
+  public value?: string;
 
   constructor() {
     this.end = false;
@@ -36,6 +37,7 @@ class PatriciaTrie {
     }
 
     node.end = true;
+    node.value = bin;
   }
 
   public search(word: string): boolean {
@@ -110,7 +112,7 @@ class PatriciaTrie {
   }
 }
 
-// let trie = new PatriciaTrie();
+let trie = new PatriciaTrie();
 
 // let alphabet = new Array(26).fill(null).map((_, i) => String.fromCharCode(65 + i));
 
@@ -135,4 +137,16 @@ class PatriciaTrie {
 //   console.log(`${letter} found: ${search}`);
 // }
 
+let smileWords = ['smile', 'smiled', 'smiles'];
+
+for (let word of smileWords) {
+  trie.insert(word);
+}
+
+console.log('hello');
+
 export { PatriciaTrie };
+
+// 0111 0011 0110 1101 0110 1001 0110 1100 0110 0101 // smile
+// |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| 0110 0100 // smiled
+// |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| 0111 0011 // smiles

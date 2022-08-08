@@ -136,21 +136,27 @@ class RadixTree {
 
 let radixTree = new RadixTree();
 
-radixTree.insert('JOHN');
-radixTree.insert('ADAM');
-radixTree.insert('ALEX');
-radixTree.insert('JANE');
-radixTree.insert('ALAN');
-radixTree.insert('ADAMA');
-radixTree.insert('ELLEN');
-radixTree.insert('ERIC');
+// radixTree.insert('JOHN');
+// radixTree.insert('ADAM');
+// radixTree.insert('ALEX');
+// radixTree.insert('JANE');
+// radixTree.insert('ALAN');
+// radixTree.insert('ADAMA');
+// radixTree.insert('ELLEN');
+// radixTree.insert('ERIC');
 
-console.log(`JOHN: ${radixTree.search('JOHN')}`); // true
-console.log(`JON: ${radixTree.search('JON')}`); // false
-console.log(`ALE: ${radixTree.search('ALE')}`); // false
-console.log(`ALEX: ${radixTree.search('ALEX')}`); // true
-console.log(`ADAM: ${radixTree.search('ADAM')}`); // true
-console.log(`ALVIN: ${radixTree.search('ALVIN')}`); // false
-console.log(`ERICA: ${radixTree.search('ERICA')}`); // false
+// console.log(`JOHN: ${radixTree.search('JOHN')}`); // true
+// console.log(`JON: ${radixTree.search('JON')}`); // false
+// console.log(`ALE: ${radixTree.search('ALE')}`); // false
+// console.log(`ALEX: ${radixTree.search('ALEX')}`); // true
+// console.log(`ADAM: ${radixTree.search('ADAM')}`); // true
+// console.log(`ALVIN: ${radixTree.search('ALVIN')}`); // false
+// console.log(`ERICA: ${radixTree.search('ERICA')}`); // false
+
+let keys = ['DID', 'DOE', 'DOG', 'DOGE', 'DOGS'];
+
+for (let k of keys) {
+  radixTree.insert(k);
+}
 
 export default RadixTree;
