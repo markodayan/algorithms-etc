@@ -1,8 +1,16 @@
 import RLP from 'rlp';
 
 type Input = string | number | bigint | Uint8Array | Array<Input> | null | undefined | any;
+type NestedUint8Array = Array<Uint8Array | NestedUint8Array>;
 
-function removePrefix(input: string): string {
+interface Decoded {
+  data: Uint8Array | NestedUint8Array;
+  remaining: Uint8Array;
+}
+
+//////////////////////////////////  Encoding Internal Methods /////////////////////////////////////////////
+/** Method to detect if string is prefixed with '0x' and slice it from the input (returns the string unaltered otherwise) */
+function stripHexPrefix(input: string): string {
   if (input.startsWith('0x')) {
     input = input.slice(2);
   }
@@ -10,6 +18,7 @@ function removePrefix(input: string): string {
   return input;
 }
 
+/** Method to detect whether input is escaped hexadecimal sequence */
 function isEscapedFormat(input: Input): boolean {
   if (typeof input === 'string') {
     return encodeURI(input[0]).startsWith('%');
@@ -18,10 +27,15 @@ function isEscapedFormat(input: Input): boolean {
   return false;
 }
 
-function hexToHexArray(input: string): string[] {
-  return input.length % 2 === 0 ? input.match(/.{1,2}/g)! : ('0' + input).match(/.{1,2}/g)!;
+/** Method to convert hex string to a byte array */
+function hexToByteArray(input: string): Uint8Array {
+  let arr: string[] =
+    input.length % 2 === 0 ? (input.match(/.{1,2}/g)! as string[]) : (('0' + input).match(/.{1,2}/g)! as string[]);
+
+  return Uint8Array.from(arr.map((b) => parseInt(b, 16) as never));
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 function encode(input: Input): Uint8Array {
   /* (1) Base Cases */
   if (input === '') return Uint8Array.from([parseInt('0x80', 16)]);
@@ -30,14 +44,20 @@ function encode(input: Input): Uint8Array {
 
   /* (2) This block accomodates for integer values */
   if (typeof input === 'number') {
+    if (input < 0) {
+      throw new Error('Integer must be unsigned (provide decimal value greater than or equal to 0');
+    }
+
     // Base case for integer = 0
     if (input === 0) {
       return Uint8Array.from([parseInt('0x80', 16)]);
-    } else if (input <= 255) {
-      // For every other integer -> encode as Byte Array
+    } else if (input <= 127) {
       return Uint8Array.from([input]);
     } else {
-      throw new Error('Integer > 255 supplied, unexpected and unhandled overflow wil occur - exit early');
+      // For all integers above 127, the first byte offset is applied
+      const bytes = hexToByteArray(input.toString(16));
+      const first = parseInt('0x80', 16) + bytes.length;
+      return Uint8Array.from([first, ...bytes]);
     }
   }
 
@@ -76,11 +96,11 @@ function encode(input: Input): Uint8Array {
     }
     // If a string of more than 55-byte length
     else if (input.length > 55) {
-      const lengthInBytes = removePrefix(input).length.toString(16);
-      const ByteAmountToStoreLengthValue: any = hexToHexArray(lengthInBytes);
+      const lengthInBytes = stripHexPrefix(input).length.toString(16);
+      const ByteAmountToStoreLengthValue: Uint8Array = hexToByteArray(lengthInBytes);
       const first = parseInt('0xb7', 16) + ByteAmountToStoreLengthValue.length;
       const encodedInput = input.split('').map((c) => c.charCodeAt(0));
-      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue.map((b) => parseInt(b, 16)), ...encodedInput]);
+      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue, ...encodedInput]);
     }
   }
 
@@ -104,9 +124,9 @@ function encode(input: Input): Uint8Array {
     // if a list of greater than 55-byte length
     if (payloadLength > 55) {
       const lengthInHex = payloadLength.toString(16);
-      const ByteAmountToStoreLengthValue = hexToHexArray(lengthInHex);
+      const ByteAmountToStoreLengthValue: Uint8Array = hexToByteArray(lengthInHex);
       const first = parseInt('0xf7', 16) + ByteAmountToStoreLengthValue.length;
-      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue.map((b) => parseInt(b, 16)), ...payloadEncoding]);
+      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue, ...payloadEncoding]);
     }
   }
 
@@ -115,125 +135,137 @@ function encode(input: Input): Uint8Array {
   );
 }
 
-let cases = [
-  'dog',
-  ['cat', 'dog'],
-  null,
-  [],
-  0,
-  '\x00',
-  '\x0f',
-  '\x04\x00',
-  [[], [[]], [[], [[]]]],
-  'Lorem ipsum dolor sit amet, consectetur adipisicing elit',
-];
+//////////////////////////////////  Decoding Internal Methods /////////////////////////////////////////////
+/** Converts byte array to acceptable hex string input format for RLP-decoding (byte values are converted the hexadecimal format where single digits are padded with 0 and 0x-prefix is added to the hexadecimal number) */
+function bytesToHexString(bytes: Uint8Array): string {
+  let payload = '0x';
 
-// for (let c of cases) {
-//   let me = encode(c);
-//   let lib = RLP.encode(c);
+  for (let byte of bytes) {
+    payload += byte.toString(16).padStart(2, '0');
+  }
 
-//   console.log(c, me.toString() === lib.toString());
-// }
+  if (payload === '0x') {
+    payload += '0';
+  }
 
-// import { testArr } from '@src/junk/rlp-encode';
-// console.log('geth test cases');
-// let tests = testArr.slice(4);
-// for (let t of tests) {
-//   let me = encode(t);
-//   let lib = RLP.encode(t as any);
+  return payload;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//   console.log(t, me.toString() === lib.toString());
-// }
+function decode(encoded: Input): Uint8Array | NestedUint8Array {
+  if (!encoded || encoded?.length === 0) {
+    return Uint8Array.from([]);
+  }
 
-let example = ['zw', [4], 1];
-let me = encode(example);
-let lib = RLP.encode(example);
-
-console.log(me);
-console.log(lib);
-
-for (let i = 0; i < 20; i++) {
-  console.log(i, encode(i), RLP.encode(i));
+  return _decode(encoded).data;
 }
 
-// Test Cases
-// console.log(encode('dog'));
-// console.log(encode(['cat', 'dog']));
-// console.log(encode(null));
-// console.log(encode([]));
-// console.log(encode(0));
-// console.log(encode('\x00'));
-// console.log(encode('\x0f'));
-// console.log(encode('\x04\00'));
-// console.log(encode([[], [[]], [[], [[]]]]));
-// console.log(encode('Lorem ipsum dolor sit amet, consectetur adipisicing elit'));
+function _decode(encoded: Input): Decoded {
+  const first = encoded[0];
 
-// const longstring =
-//   'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur mauris magna, suscipit sed vehicula non, iaculis faucibus tortor. Proin suscipit ultricies malesuada. Duis tortor elit, dictum quis tristique eu, ultrices at risus. Morbi a est imperdiet mi ullamcorper aliquet suscipit nec lorem. Aenean quis leo mollis, vulputate elit varius, consequat enim. Nulla ultrices turpis justo, et posuere urna consectetur nec. Proin non convallis metus. Donec tempor ipsum in mauris congue sollicitudin. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Suspendisse convallis sem vel massa faucibus, eget lacinia lacus tempor. Nulla quis ultricies purus. Proin auctor rhoncus nibh condimentum mollis. Aliquam consequat enim at metus luctus, a eleifend purus egestas. Curabitur at nibh metus. Nam bibendum, neque at auctor tristique, lorem libero aliquet arcu, non interdum tellus lectus sit amet eros. Cras rhoncus, metus ac ornare cursus, dolor justo ultrices metus, at ullamcorper volutpat';
+  switch (true) {
+    // payload is a string which is 1 byte in size.
+    case first >= 0 && first <= 127: {
+      const decoded = encoded.slice(0, 1);
 
-// console.log('\x04\x00', encode('\x04\x00'), RLP.encode('\x04\x00'));
-// console.log('0x400', encode('0x400'), RLP.encode('0x400'));
-// console.log("'\x00'", encode('\x00'), RLP.encode('\x00'));
-// console.log('0x7f7f7f7', encode('0x7f7f7f7'), RLP.encode('0x7f7f7f7'));
-// console.log(`['cat', 'dog']`, encode(['cat', 'dog']), RLP.encode(['cat', 'dog']));
-// console.log(encode(['cat', 'dog']).toString() === RLP.encode(['cat', 'dog']).toString());
-// console.dir(encode(longstring), { maxArrayLength: null });
-// console.dir(RLP.encode(longstring), { maxArrayLength: null });
-// let me = encode(longstring);
-// let lib = RLP.encode(longstring);
+      return {
+        data: decoded,
+        remaining: encoded.slice(1),
+      };
+    }
 
-// let allEqual = false;
+    // payload is a string smaller than or equal to 55 bytes in size.
+    case first >= 128 && first <= 183: {
+      // range of first byte is between value 128 and 183 (hence min length is 1 byte)
+      const length = first - 127;
+      let decoded;
 
-// for (let i = 0; i < 1024; i++) {
-//   allEqual = lib[i] === me[i];
-// }
+      // edge case (byte value = 128 (0x80))
+      if (first === 128) {
+        decoded = Uint8Array.from([]);
+      } else {
+        decoded = Uint8Array.from([...encoded.slice(1, length)]);
+      }
 
-// console.log('1st equality method', me.toString() === lib.toString());
-// console.log('2nd equality method', allEqual);
+      return {
+        data: decoded,
+        remaining: encoded.slice(length),
+      };
+    }
 
-// for (let t of cases) {
-//   // console.log(t, RLP.encode(t));
-// }
+    // payload is a string bigger than 55 bytes in size.
+    case first >= 184 && first <= 191: {
+      const length = first - 183;
+      const payloadLengthInHex = bytesToHexString(encoded.slice(1, 1 + length));
+      const payloadLength = parseInt(payloadLengthInHex, 16);
 
-// let longlist = [
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-//   ['asdf', 'qwer', 'zxcv'],
-// ];
+      const decoded = Uint8Array.from([...encoded.slice(1 + length, 1 + length + payloadLength)]);
 
-// console.log(encode(longlist));
+      return {
+        data: decoded,
+        remaining: encoded.slice(1 + length + payloadLength),
+      };
+    }
 
-// console.log(RLP.encode(longlist));
+    // payload is a list where its contents are smaller than or equal to 55 bytes in size
+    case first >= 192 && first <= 247: {
+      const decoded = [];
+      // range of first byte is between value 192 and 247 (hence min length is 1 byte)
+      // first byte is 191 + bytes required to store payload length value
+      const bytesToStorePayloadLengthValue = first - 191;
+      const payloadLengthInHex = bytesToHexString(encoded.slice(1, 1 + bytesToStorePayloadLengthValue));
+      const payloadLength = parseInt(payloadLengthInHex, 16);
 
-// console.log('longlist:', encode(longlist).toString() === RLP.encode(longlist).toString());
+      let encodedPayload = Uint8Array.from([...encoded.slice(1, 1 + payloadLength)]);
 
-export { encode };
+      while (encodedPayload.length > 0) {
+        let { data, remaining } = _decode(encodedPayload);
+        decoded.push(data);
+
+        if (!remaining) {
+          break;
+        }
+
+        encodedPayload = remaining;
+      }
+
+      return {
+        data: decoded,
+        remaining: encoded.slice(1 + payloadLength),
+      };
+    }
+
+    // payload is a list where its contents are bigger than 55 bytes in size
+    case first >= 248 && first <= 255: {
+      const decoded = [];
+      const bytesToStorePayloadLengthValue = first - 247;
+      const payloadLengthInHex = bytesToHexString(encoded.slice(1, 1 + bytesToStorePayloadLengthValue));
+      const payloadLength = parseInt(payloadLengthInHex, 16);
+
+      let encodedPayload = Uint8Array.from([
+        ...encoded.slice(1 + bytesToStorePayloadLengthValue, 1 + bytesToStorePayloadLengthValue + payloadLength),
+      ]);
+
+      while (encodedPayload.length > 0) {
+        let { data, remaining } = _decode(encodedPayload);
+        decoded.push(data);
+
+        if (!remaining) {
+          break;
+        }
+
+        encodedPayload = remaining;
+      }
+
+      return {
+        data: decoded,
+        remaining: encoded.slice(1 + bytesToStorePayloadLengthValue + payloadLength),
+      };
+    }
+
+    default:
+      throw new Error('Invalid first byte for RLP encoded input');
+  }
+}
+
+export { encode, decode };
