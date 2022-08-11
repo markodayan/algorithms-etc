@@ -211,12 +211,8 @@ function _decode(encoded: Input): Decoded {
     case first >= 192 && first <= 247: {
       const decoded = [];
       // range of first byte is between value 192 and 247 (hence min length is 1 byte)
-      // first byte is 191 + bytes required to store payload length value
-      const bytesToStorePayloadLengthValue = first - 191;
-      const payloadLengthInHex = bytesToHexString(encoded.slice(1, 1 + bytesToStorePayloadLengthValue));
-      const payloadLength = parseInt(payloadLengthInHex, 16);
-
-      let encodedPayload = Uint8Array.from([...encoded.slice(1, 1 + payloadLength)]);
+      const payloadLength = first - 191;
+      let encodedPayload = encoded.slice(1, payloadLength);
 
       while (encodedPayload.length > 0) {
         let { data, remaining } = _decode(encodedPayload);
@@ -231,7 +227,7 @@ function _decode(encoded: Input): Decoded {
 
       return {
         data: decoded,
-        remaining: encoded.slice(1 + payloadLength),
+        remaining: encoded.slice(payloadLength),
       };
     }
 
