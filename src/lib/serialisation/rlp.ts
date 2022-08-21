@@ -9,15 +9,6 @@ interface Decoded {
 }
 
 //////////////////////////////////  Encoding Internal Methods /////////////////////////////////////////////
-/** Method to detect if string is prefixed with '0x' and slice it from the input (returns the string unaltered otherwise) */
-function stripHexPrefix(input: string): string {
-  if (input.startsWith('0x')) {
-    input = input.slice(2);
-  }
-
-  return input;
-}
-
 /** Method to detect whether input is escaped hexadecimal sequence */
 function isEscapedFormat(input: Input): boolean {
   if (typeof input === 'string') {
@@ -27,41 +18,78 @@ function isEscapedFormat(input: Input): boolean {
   return false;
 }
 
-/** Method to convert hex string to a byte array */
-function hexToByteArray(input: string): Uint8Array {
-  let arr: string[] =
-    input.length % 2 === 0 ? (input.match(/.{1,2}/g)! as string[]) : (('0' + input).match(/.{1,2}/g)! as string[]);
+function stripHexPrefix(input: string): string {
+  if (input.startsWith('0x')) {
+    input = input.slice(2);
+  }
 
-  return Uint8Array.from(arr.map((b) => parseInt(b, 16) as never));
+  return input;
+}
+
+function hexStringToByteArr(input: string): Uint8Array {
+  input = stripHexPrefix(input);
+
+  let arr: string[] = [];
+
+  if (input.length % 2 === 0) {
+    // if even number of hex digits -> input doesn't require prefixing for splitting into hex byte values
+    arr = input.match(/.{1,2}/g)! as string[];
+  } else {
+    // if odd number of hex digits -> prefix with 0 digit before splitting into hex byte values
+    arr = ('0' + input).match(/.{1,2}/g)! as string[];
+  }
+
+  // Convert hexadecimal value array to decimal value array
+  const decimalArr = arr.map((h) => parseInt(h, 16));
+
+  // Create byte array from decimal value array
+  return Uint8Array.from(decimalArr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 function encode(input: Input): Uint8Array {
-  /* (1) Base Cases */
-  if (input === '') return Uint8Array.from([parseInt('0x80', 16)]);
-  if (input === null) return Uint8Array.from([parseInt('0x80', 16)]);
-  if (input === []) return Uint8Array.from([parseInt('0xc0', 16)]);
+  /* Non-value input */
+  if (input === '' || input === false || input === null) {
+    const value = parseInt('0x80', 16);
+    return Uint8Array.from([value]);
+  }
 
-  /* (2) This block accomodates for integer values */
+  /* Empty list input */
+  if (input === []) {
+    const value = parseInt('0xc0', 16);
+    return Uint8Array.from([value]);
+  }
+
+  /* For decimal value inputs */
   if (typeof input === 'number') {
     if (input < 0) {
       throw new Error('Integer must be unsigned (provide decimal value greater than or equal to 0');
     }
 
-    // Base case for integer = 0
     if (input === 0) {
-      return Uint8Array.from([parseInt('0x80', 16)]);
-    } else if (input <= 127) {
+      const value = parseInt('0x80', 16);
+      return Uint8Array.from([value]);
+    }
+
+    if (input <= 127) {
       return Uint8Array.from([input]);
-    } else {
-      // For all integers above 127, the first byte offset is applied
-      const bytes = hexToByteArray(input.toString(16));
-      const first = parseInt('0x80', 16) + bytes.length;
-      return Uint8Array.from([first, ...bytes]);
+    }
+
+    if (input > 127) {
+      const hexStr = input.toString(16);
+      const byteArr = hexStringToByteArr(hexStr);
+      const first = parseInt('0x80', 16) + byteArr.length;
+      return Uint8Array.from([first, ...byteArr]);
     }
   }
 
-  /* (3) This block accomodates for hexadecimal escape sequences */
+  /* true boolean input */
+  if (input === true) {
+    const value = parseInt('0x01', 16);
+    return Uint8Array.from([value]);
+  }
+
+  /* For hexadecimal escape sequence inputs */
   if (isEscapedFormat(input)) {
     // @ts-ignore
     const payload: any[] = (input as string)
@@ -69,64 +97,78 @@ function encode(input: Input): Uint8Array {
       .reduce((acc, v) => acc + encodeURI(v).slice(1), '')
       .match(/.{1,2}/g);
 
-    // if escaped hex is one byte
     if (payload.length === 1) {
-      return Uint8Array.from([parseInt(payload[0], 16)]);
+      const value = parseInt(payload[0], 16);
+      return Uint8Array.from([value]);
     }
 
-    if (payload!.length <= 55) {
-      const first = parseInt('0x80', 16) + payload!.length;
+    if (payload.length <= 55) {
+      const first = parseInt('0x80', 16) + payload.length;
       return Uint8Array.from([first, ...payload]);
     }
-  } else if (typeof input === 'string' && input.startsWith('0x')) {
-    const payload = input.slice(2);
+  }
+
+  /* For hexadecimal strings prefixed by '0x' */
+  if (typeof input === 'string' && input.startsWith('0x')) {
+    const payload = stripHexPrefix(input);
+
+    // If odd number of digits in hexadecimal string -> append '0' prefix
     const padded = payload.length % 2 === 0 ? payload : '0' + payload;
-    const hexArr: any[] = padded.match(/.{1,2}/g).map((x) => '0x' + x);
+    // Create array of hex values where each element is prefixed by '0x' (we do this so byte array can convert these hex values to decimal byte values in the return statement)
+    const hexArr: any[] = padded.match(/.{1,2}/g)!.map((x) => '0x' + x);
+
     const first = parseInt('0x80', 16) + hexArr.length;
     return Uint8Array.from([first, ...hexArr]);
   }
 
-  /* (4) This block accomodates for string values */
-  if (typeof input === 'string') {
-    // If a string of 0-55 byte length
-    if (input.length <= 55) {
-      const first = parseInt('0x80', 16) + input.length;
-      const encodedInput = input.split('').map((c) => c.charCodeAt(0));
-      return Uint8Array.from([first, ...encodedInput]);
-    }
-    // If a string of more than 55-byte length
-    else if (input.length > 55) {
-      const lengthInBytes = stripHexPrefix(input).length.toString(16);
-      const ByteAmountToStoreLengthValue: Uint8Array = hexToByteArray(lengthInBytes);
-      const first = parseInt('0xb7', 16) + ByteAmountToStoreLengthValue.length;
-      const encodedInput = input.split('').map((c) => c.charCodeAt(0));
-      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue, ...encodedInput]);
-    }
+  /* Input is string of 1 byte in length */
+  if (typeof input === 'string' && input.length === 1) {
+    const value = input.charCodeAt(0);
+    return Uint8Array.from([value]);
   }
 
-  /* (5) This block accomodates for array types */
+  /* Input is string between 2-55 bytes in length */
+  if (typeof input === 'string' && input.length <= 55) {
+    const first = parseInt('0x80', 16) + input.length;
+    const encoded = input.split('').map((c) => c.charCodeAt(0));
+
+    return Uint8Array.from([first, ...encoded]);
+  }
+
+  /* Input is string greater than 55 bytes in length */
+  if (typeof input === 'string' && input.length > 55) {
+    const lengthInHex = stripHexPrefix(input).length.toString(16);
+    const bytesToStoreLengthInHex = hexStringToByteArr(lengthInHex);
+
+    const first = parseInt('0xb7', 16) + bytesToStoreLengthInHex.length;
+    const encoded = input.split('').map((c) => c.charCodeAt(0));
+
+    return Uint8Array.from([first, ...bytesToStoreLengthInHex, ...encoded]);
+  }
+
   if (Array.isArray(input)) {
-    const payloadEncoding = [];
-    let payloadLength = 0;
+    const encoded = [];
+    let encodedLength = 0;
 
-    for (let element of input) {
-      const encoded = encode(element);
-      payloadEncoding.push(...encoded);
-      payloadLength += encoded.length;
+    for (const item of input) {
+      const enc = encode(item);
+      encoded.push(...enc);
+      encodedLength += enc.length;
     }
 
-    // if a list of 0-55 bytes long
-    if (payloadLength <= 55) {
-      const first = parseInt('0xc0', 16) + payloadLength;
-      return Uint8Array.from([first, ...payloadEncoding]);
+    /* Input is list with the sum of its RLP-encoded contents being between 1–55 bytes  */
+    if (encodedLength <= 55) {
+      const first = parseInt('0xc0', 16) + encodedLength;
+      return Uint8Array.from([first, ...encoded]);
     }
 
-    // if a list of greater than 55-byte length
-    if (payloadLength > 55) {
-      const lengthInHex = payloadLength.toString(16);
-      const ByteAmountToStoreLengthValue: Uint8Array = hexToByteArray(lengthInHex);
-      const first = parseInt('0xf7', 16) + ByteAmountToStoreLengthValue.length;
-      return Uint8Array.from([first, ...ByteAmountToStoreLengthValue, ...payloadEncoding]);
+    /* Input is list with the sum of its RLP-encoded contents being greater than 55 bytes */
+    if (encodedLength > 55) {
+      const lengthInHex = encodedLength.toString(16);
+      const bytesToStoreLengthInHex = hexStringToByteArr(lengthInHex);
+
+      const first = parseInt('0xf7', 16) + bytesToStoreLengthInHex.length;
+      return Uint8Array.from([first, ...bytesToStoreLengthInHex, ...encoded]);
     }
   }
 
