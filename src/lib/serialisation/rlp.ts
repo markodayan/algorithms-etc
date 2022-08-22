@@ -1,5 +1,3 @@
-import RLP from 'rlp';
-
 type Input = string | number | bigint | Uint8Array | Array<Input> | null | undefined | any;
 type NestedUint8Array = Array<Uint8Array | NestedUint8Array>;
 
@@ -47,14 +45,16 @@ function hexStringToByteArr(input: string): Uint8Array {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Additional
+
 function encode(input: Input): Uint8Array {
-  /* Non-value input */
+  /* (1) Non-value input */
   if (input === '' || input === false || input === null) {
     const value = parseInt('0x80', 16);
     return Uint8Array.from([value]);
   }
 
-  /* Empty list input */
+  /* (2) Empty list input */
   if (input === []) {
     const value = parseInt('0xc0', 16);
     return Uint8Array.from([value]);
@@ -71,6 +71,7 @@ function encode(input: Input): Uint8Array {
       return Uint8Array.from([value]);
     }
 
+    /* (3) A single byte with value within range [0x00, 0x7f] as input */
     if (input <= 127) {
       return Uint8Array.from([input]);
     }
@@ -117,17 +118,25 @@ function encode(input: Input): Uint8Array {
     // Create array of hex values where each element is prefixed by '0x' (we do this so byte array can convert these hex values to decimal byte values in the return statement)
     const hexArr: any[] = padded.match(/.{1,2}/g)!.map((x) => '0x' + x);
 
+    if (hexArr.length > 55) {
+      const lengthInHex = hexArr.length.toString(16);
+      const bytesToStoreLengthInHex = hexStringToByteArr(lengthInHex);
+      const first = parseInt('0xb7', 16) + bytesToStoreLengthInHex.length;
+      return Uint8Array.from([first, ...bytesToStoreLengthInHex, ...hexArr]);
+    }
+
     const first = parseInt('0x80', 16) + hexArr.length;
+    console.log('first', first);
     return Uint8Array.from([first, ...hexArr]);
   }
 
-  /* Input is string of 1 byte in length */
+  /* (4) Input is string with length of 1 byte */
   if (typeof input === 'string' && input.length === 1) {
     const value = input.charCodeAt(0);
     return Uint8Array.from([value]);
   }
 
-  /* Input is string between 2-55 bytes in length */
+  /* (5) Input is string between 2-55 bytes in length */
   if (typeof input === 'string' && input.length <= 55) {
     const first = parseInt('0x80', 16) + input.length;
     const encoded = input.split('').map((c) => c.charCodeAt(0));
@@ -135,7 +144,7 @@ function encode(input: Input): Uint8Array {
     return Uint8Array.from([first, ...encoded]);
   }
 
-  /* Input is string greater than 55 bytes in length */
+  /* (6) Input is string greater than 55 bytes in length */
   if (typeof input === 'string' && input.length > 55) {
     const lengthInHex = stripHexPrefix(input).length.toString(16);
     const bytesToStoreLengthInHex = hexStringToByteArr(lengthInHex);
@@ -156,13 +165,13 @@ function encode(input: Input): Uint8Array {
       encodedLength += enc.length;
     }
 
-    /* Input is list with the sum of its RLP-encoded contents being between 1–55 bytes  */
+    /* (7) Input is list with the sum of its RLP-encoded contents being between 1–55 bytes  */
     if (encodedLength <= 55) {
       const first = parseInt('0xc0', 16) + encodedLength;
       return Uint8Array.from([first, ...encoded]);
     }
 
-    /* Input is list with the sum of its RLP-encoded contents being greater than 55 bytes */
+    /* (8) Input is list with the sum of its RLP-encoded contents being greater than 55 bytes */
     if (encodedLength > 55) {
       const lengthInHex = encodedLength.toString(16);
       const bytesToStoreLengthInHex = hexStringToByteArr(lengthInHex);
