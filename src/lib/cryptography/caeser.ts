@@ -46,4 +46,5 @@ const caeserCipher = (secret: string, s: number) => {
   return solution.join(' ');
 };
 
+console.log(caeserCipher('ATTACKATDAWN', 5));
 export { caeserCipher };
