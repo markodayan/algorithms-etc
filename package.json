@@ -41,6 +41,7 @@
     "typescript": "^4.5.4"
   },
   "dependencies": {
+    "bitwise-xor": "^0.0.0",
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "keccak": "^3.0.2",
